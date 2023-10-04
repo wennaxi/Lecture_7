@@ -1,0 +1,114 @@
+---
+title: "Lecture 7: Live Code Day: Attacking a Messy Spreadsheet!"
+author: "Wenna Xi"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readxl)
+library(here)
+library(janitor)
+```
+
+## Announcements 
+
+* Data Challenge #2 is due Monday 10/9 @ 5:59pm on Canvas
+* Quiz #3 is on Monday 10/29 at 6pm
+* UCSAS 2024 USOPC DATA CHALLENGE: https://statds.org/events/ucsas2024/challenge.html
+* Github repo
+
+## Live Code Tasks
+
+The `ehr.xlsx` file contains simulated EHR data I generated based on a real project
+
+The file has three tabs: 
+
+* demographics: patients' admission date/time, discharge date/time, visit type (Inpatient, ED), hospital sites (LMH, Queens)
+* medications: date/time, dose of sedating psychotropic medications administered during the visit
+* observation: start and end date/time when patient was placed under one-on-one safety observation 
+
+Tasks:
+
+1. For each drug $\times$ route combination, calculate the total dose administered for each patient during each visit
+2. Unique number of agitation episodes requiring pharmacologic intervention
+    - Use number of discrete administrations of sedating psychotropic medications as an approximation 
+    - Discrete administration defined as two administrations > 10 minutes apart 
+3. Total length of time patients were placed under observation during each visit
+
+
+
+
+## Live Code
+
+### Read in the data
+
+```{r}
+demographics <- read_excel(here("data", "ehr.xlsx"), sheet = "demographics") |>
+  clean_names()
+medications <- read_excel(here("data", "ehr.xlsx"), sheet = "medications") |>
+  clean_names()
+observation <- read_excel(here("data", "ehr.xlsx"), sheet = "observation") |>
+  clean_names()
+```
+
+### Task 1
+```{r}
+table(medications$drug_name, useNA = "always")
+table(medications$task_route, useNA = "always")
+table(medications$dose_unit, useNA = "always")
+
+
+medications_task1 <- medications |>
+  mutate(drug_new = word(str_to_sentence(drug_name)),
+         route_new = if_else(task_route == "IntraMUSCULAR", "IM", "IV"),
+         drug_route = paste(drug_new, route_new, sep = "_")) |>
+  group_by(patient_id, visit_id, drug_route) |>
+  summarise(total_dose = sum(dose)) |>
+  pivot_wider(names_from = drug_route,
+              values_from = total_dose)
+```
+
+### Task 2
+```{r}
+medications_task2 <- medications |>
+  group_by(patient_id, visit_id) |>
+  arrange(date) |>
+  mutate(next_date = lead(date),
+         diff = interval(date, next_date) / minutes(1),
+         unique_episodes = if_else(diff > 10, 1, 0)) |>
+  filter(unique_episodes == 1 | is.na(unique_episodes)) |>
+  summarise(n_unique_espisodes = n())
+
+```
+
+
+### Task 3
+```{r}
+observation_task3 <- observation |>
+  group_by(patient_id, visit_id) |>
+  arrange(start_time, end_time) |>
+  mutate(next_start_time = lead(start_time),
+         nonoverlap__observations = if_else(end_time > next_start_time, 1, 0),  
+         distinct_observations = c(0, cumsum(as.numeric(next_start_time) > cummax(as.numeric(end_time)))[-n()])) |>
+  group_by(patient_id, visit_id, distinct_observations) |>
+  summarise(start = min(start_time), 
+            end = max(end_time),
+            length = interval(start, end) / hours(1))
+```
+
+### Table Summary
+```{r}
+
+results <- demographics |>
+  left_join(medications_task1) |>
+  left_join(medications_task2) |>
+  left_join(observation_task3)
+
+library(table1)
+
+
+table1(~ Diphenhydramine_IM + Diphenhydramine_IV + Haloperidol_IV + Lorazepam_IV + n_unique_espisodes + length | hospital, data = results)
+```
