@@ -586,13 +586,6 @@ observation &lt;- read_excel(here(&quot;data&quot;, &quot;ehr.xlsx&quot;), sheet
 <pre><code>## Joining with `by = join_by(patient_id, visit_id)`
 ## Joining with `by = join_by(patient_id, visit_id)`
 ## Joining with `by = join_by(patient_id, visit_id)`</code></pre>
-<pre class="r"><code>library(table1)</code></pre>
-<pre><code>## 
-## Attaching package: &#39;table1&#39;
-## 
-## The following objects are masked from &#39;package:base&#39;:
-## 
-##     units, units&lt;-</code></pre>
 <pre class="r"><code>table1(~ Diphenhydramine_IM + Diphenhydramine_IV + Haloperidol_IV + Lorazepam_IV + n_unique_espisodes + length | hospital, data = results)</code></pre>
 <div class="Rtable1"><table class="Rtable1">
 <thead>

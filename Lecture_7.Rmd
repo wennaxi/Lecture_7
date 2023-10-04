@@ -11,6 +11,7 @@ library(tidyverse)
 library(readxl)
 library(here)
 library(janitor)
+library(table1)
 ```
 
 ## Announcements 
@@ -101,14 +102,10 @@ observation_task3 <- observation |>
 
 ### Table Summary
 ```{r}
-
 results <- demographics |>
   left_join(medications_task1) |>
   left_join(medications_task2) |>
   left_join(observation_task3)
-
-library(table1)
-
 
 table1(~ Diphenhydramine_IM + Diphenhydramine_IV + Haloperidol_IV + Lorazepam_IV + n_unique_espisodes + length | hospital, data = results)
 ```
